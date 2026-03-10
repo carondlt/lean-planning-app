@@ -1,3 +1,5 @@
+from PIL import Image
+Image.MAX_IMAGE_PIXELS = None  # Désactive la limite de sécurité pour les grandes images
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -143,4 +145,5 @@ if uploaded_file:
     except Exception as e:
         st.error(f"💥 Erreur lors de l'analyse du fichier : {e}")
         st.info("Vérifiez que votre fichier Excel contient bien les colonnes : CFC, N°appartement, Début, Fin, Nom")
+
 
