@@ -1,4 +1,26 @@
+import streamlit as st
 
+# FORCE L'AFFICHAGE DU TITRE EN PREMIER
+st.title("🏗️ Générateur de Planning Lean")
+st.write("Si vous voyez ce message, l'appli fonctionne !")
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import matplotlib.dates as mdates
+from datetime import timedelta, date
+import textwrap
+import io
+
+# --- LE RESTE DU CODE ---
+with st.sidebar:
+    st.header("⚙️ Configuration")
+    nb_semaines = st.sidebar.slider("Nombre de semaines", 1, 6, 2)
+    date_debut = st.sidebar.date_input("Date de début", date(2026, 9, 7))
+
+uploaded_file = st.file_uploader("📁 Glissez votre fichier Excel (.xlsx) ici", type=["xlsx"])
+
+# ... (colle la suite du code ici)
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -96,3 +118,4 @@ else:
     print(f"✅ SUCCÈS : Le fichier '{output_name}' est prêt dans l'onglet Files.")
 
     plt.show()
+
