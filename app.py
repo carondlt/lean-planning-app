@@ -1,4 +1,4 @@
-%pip install openpyxl
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -94,4 +94,5 @@ else:
     output_name = f"Planning_Production_{datetime.now().strftime('%Y%m%d')}.pdf"
     plt.savefig(output_name, format='pdf')
     print(f"✅ SUCCÈS : Le fichier '{output_name}' est prêt dans l'onglet Files.")
+
     plt.show()
