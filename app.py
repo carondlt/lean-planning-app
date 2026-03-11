@@ -109,4 +109,37 @@ if uploaded_file:
                 y_cursor = 0
                 for cfc in active_cfcs:
                     h = max(2.8, cfc_info[cfc][0] * 2.2)
-                    ax.add_patch(patches.Rectangle((mdates.date2num(p_start), y_cursor), nb_semaines_ui*7, h, color='grey', alpha=0.0
+                    ax.add_patch(patches.Rectangle((mdates.date2num(p_start), y_cursor), nb_semaines_ui*7, h, color='grey', alpha=0.03))
+                    ax.axhline(y_cursor, color='black', linewidth=3)
+                    ax.text(mdates.date2num(p_start)-0.2, y_cursor+h/2, f"CFC {cfc}", ha='right', va='center', fontweight='bold', fontsize=25)
+                    
+                    tasks = df_zoom[df_zoom[c_cfc] == cfc].sort_values('Start')
+                    for (_, row), (s, e, lvl) in zip(tasks.iterrows(), cfc_info[cfc][1]):
+                        y_t = y_cursor + 1.2 + (lvl * 2.2)
+                        rect_s = max(s, mdates.date2num(p_start))
+                        rect_e = min(e, mdates.date2num(p_end))
+                        ax.add_patch(patches.Rectangle((s, y_t-1.0), e-s, 2.0, facecolor=colors[row['Apt']], edgecolor='black', linewidth=1, zorder=5))
+                        t_nom = str(row[c_nom]) if c_nom in row else "Tâche"
+                        txt = f"APP {row['Apt']}\n" + "\n".join(textwrap.wrap(t_nom, width=15))
+                        ax.text(rect_s + (rect_e-rect_s)/2, y_t, txt, ha='center', va='center', fontsize=16, fontweight='bold', zorder=10)
+                    y_cursor += h
+
+                # Headers Temporels
+                curr = p_start
+                while curr < p_end:
+                    dn = mdates.date2num(curr)
+                    if curr.weekday() == 0:
+                        ax.text(dn+3.5, -2, f"SEMAINE {curr.isocalendar()[1]} - {curr.year}", ha='center', fontsize=35, fontweight='bold', bbox=dict(facecolor='gold', pad=5))
+                        ax.axvline(dn, color='black', linewidth=3)
+                    ax.text(dn+0.5, -0.5, f"{['LUN','MAR','MER','JEU','VEN','SAM','DIM'][curr.weekday()]} {curr.day}", ha='center', fontsize=18)
+                    curr += timedelta(days=1)
+
+                ax.set_yticks([]); ax.set_xticks([])
+                st.pyplot(fig, dpi=72)
+
+                buf = io.BytesIO()
+                plt.savefig(buf, format='pdf', bbox_inches='tight')
+                st.download_button(label="📥 Télécharger le Planning PDF", data=buf.getvalue(), file_name=f"Planning_{date_debut_ui}.pdf", mime="application/pdf")
+
+    except Exception as e:
+        st.error(f"💥 Erreur technique : {e}")
