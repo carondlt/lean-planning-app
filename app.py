@@ -9,11 +9,10 @@ import io
 import re
 from PIL import Image
 
-# Désactive la limite de sécurité pour les grandes images
 Image.MAX_IMAGE_PIXELS = None
 
 st.set_page_config(page_title="Générateur Lean", layout="wide")
-st.title("🏗️ Générateur de Planning Lean")
+st.title("🗓️ Planning Lean - Vue Emploi du Temps")
 
 with st.sidebar:
     st.header("⚙️ Configuration")
@@ -52,7 +51,6 @@ if uploaded_file:
                 for fr, num in mois_fr.items():
                     s = s.replace(fr, num)
 
-                # Extracteur de force brute : cherche deux chiffres, deux chiffres, quatre chiffres
                 match = re.search(r'(\d{1,2})[\s\./-]+(\d{1,2})[\s\./-]+(\d{4})', s)
                 if match:
                     clean_date = f"{match.group(1)}/{match.group(2)}/{match.group(3)}"
@@ -72,8 +70,6 @@ if uploaded_file:
 
             if df_zoom.empty:
                 st.warning(f"📅 Rien de prévu entre le {p_start.date()} et le {p_end.date()}.")
-                if not df_clean.empty:
-                    st.success(f"✅ Dates lues ! Le chantier va du {df_clean['Start_Dt'].min().date()} au {df_clean['End_Dt'].max().date()}.")
             else:
                 active_cfcs = sorted(df_zoom[c_cfc].unique(), key=lambda x: str(x))
                 cfc_info = {}
@@ -89,48 +85,80 @@ if uploaded_file:
                     cfc_info[cfc] = (max_lvl + 1, placed)
 
                 total_h = sum([max(2.8, h * 2.2) for h, _ in cfc_info.values()])
-                fig = plt.figure(figsize=(25, total_h * 1.5 + 5))
-                ax = fig.add_axes([0.15, 0.1, 0.82, 0.8])
+                
+                # --- NOUVEAU DESIGN ---
+                # Fond blanc pur pour un effet propre
+                fig = plt.figure(figsize=(25, total_h * 1.5 + 5), facecolor='white')
+                ax = fig.add_axes([0.15, 0.1, 0.82, 0.8], facecolor='white')
                 ax.set_xlim(mdates.date2num(p_start), mdates.date2num(p_end))
                 ax.set_ylim(-4, total_h)
                 ax.invert_yaxis()
+                
+                # Enlever les bordures moches du graphique
+                for spine in ax.spines.values():
+                    spine.set_visible(False)
 
-                apt_colors = {a: plt.cm.tab20(i % 20) for i, a in enumerate(sorted(df_clean['Apt_Txt'].unique()))}
+                # Palette de couleurs élégantes (pastels sourds)
+                chic_palette = ['#EAECEE', '#D6DBDF', '#D5C4A1', '#BCAAA4', '#B0BEC5', '#A9CCE3', '#A2D9CE', '#F9E79F', '#F5CBA7', '#E8DAEF']
+                apt_list = sorted(df_clean['Apt_Txt'].unique())
+                apt_colors = {a: chic_palette[i % len(chic_palette)] for i, a in enumerate(apt_list)}
+
+                # Quadrillage vertical (effet emploi du temps)
+                curr_grid = p_start
+                while curr_grid <= p_end:
+                    ax.axvline(mdates.date2num(curr_grid), color='#EEEEEE', linewidth=1.5, zorder=0)
+                    curr_grid += timedelta(days=1)
 
                 y_cursor = 0
                 for cfc in active_cfcs:
                     h = max(2.8, cfc_info[cfc][0] * 2.2)
-                    ax.add_patch(patches.Rectangle((mdates.date2num(p_start), y_cursor), nb_semaines*7, h, color='grey', alpha=0.03))
-                    ax.axhline(y_cursor, color='black', linewidth=3)
-                    ax.text(mdates.date2num(p_start) - 0.2, y_cursor + h/2, f"CFC {cfc}", ha='right', va='center', fontweight='bold', fontsize=20)
+                    
+                    # Fond alterné léger pour les lignes CFC
+                    if active_cfcs.index(cfc) % 2 == 0:
+                        ax.add_patch(patches.Rectangle((mdates.date2num(p_start), y_cursor), nb_semaines*7, h, color='#F8F9FA', zorder=1))
+                    
+                    # Ligne de séparation très fine
+                    ax.axhline(y_cursor, color='#BDC3C7', linewidth=1)
+                    
+                    # Nom du CFC (plus sobre, gris foncé)
+                    ax.text(mdates.date2num(p_start) - 0.2, y_cursor + h/2, f"CFC {cfc}", ha='right', va='center', fontweight='bold', fontsize=18, color='#2C3E50')
 
                     tasks = df_zoom[df_zoom[c_cfc] == cfc].sort_values('Start_Dt')
                     for (_, row), (start_num, end_num, lvl) in zip(tasks.iterrows(), cfc_info[cfc][1]):
                         y_t = y_cursor + 1.2 + (lvl * 2.2)
                         rect_s = max(start_num, mdates.date2num(p_start))
                         rect_e = min(end_num, mdates.date2num(p_end))
-                        ax.add_patch(patches.Rectangle((start_num, y_t-1.0), end_num-start_num, 2.0, facecolor=apt_colors[row['Apt_Txt']], edgecolor='black', linewidth=1))
+                        
+                        # Style de la tâche (rectangle net avec bordure blanche)
+                        ax.add_patch(patches.Rectangle((start_num, y_t-1.0), end_num-start_num, 2.0, facecolor=apt_colors[row['Apt_Txt']], edgecolor='white', linewidth=2, zorder=5))
 
                         task_name = str(row[c_nom]) if c_nom and pd.notna(row[c_nom]) else "Tâche"
                         txt_label = f"APP {row['Apt_Txt']}\n" + "\n".join(textwrap.wrap(task_name, width=15))
-                        ax.text(rect_s + (rect_e-rect_s)/2, y_t, txt_label, ha='center', va='center', fontsize=12, fontweight='bold')
+                        
+                        # Texte centré et sombre pour une lisibilité parfaite
+                        ax.text(rect_s + (rect_e-rect_s)/2, y_t, txt_label, ha='center', va='center', fontsize=12, fontweight='bold', color='#1C2833', zorder=10)
                     y_cursor += h
 
+                # En-têtes Temporels (Le chic bleu marine)
                 curr = p_start
                 while curr < p_end:
                     dn = mdates.date2num(curr)
                     if curr.weekday() == 0:
-                        ax.text(dn+3.5, -2, f"SEMAINE {curr.isocalendar()[1]}", ha='center', fontsize=30, fontweight='bold', bbox=dict(facecolor='gold', pad=5))
-                        ax.axvline(dn, color='black', linewidth=2)
-                    ax.text(dn+0.5, -0.5, f"{curr.day}", ha='center', fontsize=14)
+                        # Bloc Semaine Bleu Marine
+                        ax.text(dn+3.5, -2, f"SEMAINE {curr.isocalendar()[1]}", ha='center', fontsize=22, fontweight='bold', color='white', bbox=dict(facecolor='#1C2833', edgecolor='none', pad=6, boxstyle='round,pad=0.3'))
+                        ax.axvline(dn, color='#1C2833', linewidth=2, zorder=2)
+                    
+                    # Numéros des jours
+                    color_jour = '#E74C3C' if curr.weekday() >= 5 else '#7F8C8D' # Weekends en rouge doux
+                    ax.text(dn+0.5, -0.5, f"{curr.day}", ha='center', fontsize=14, fontweight='bold', color=color_jour)
                     curr += timedelta(days=1)
 
                 ax.set_yticks([]); ax.set_xticks([])
                 st.pyplot(fig)
 
                 buf = io.BytesIO()
-                plt.savefig(buf, format='pdf', bbox_inches='tight')
-                st.download_button("📥 Télécharger PDF", buf.getvalue(), f"Lean_Planning_Athenee.pdf", "application/pdf")
+                plt.savefig(buf, format='pdf', bbox_inches='tight', facecolor=fig.get_facecolor(), edgecolor='none')
+                st.download_button("📥 Télécharger PDF", buf.getvalue(), f"Emploi_Du_Temps_{date_debut_ui}.pdf", "application/pdf")
 
     except Exception as e:
         st.error(f"💥 Erreur inattendue : {e}")
