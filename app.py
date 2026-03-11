@@ -21,7 +21,7 @@ with st.sidebar:
     
     st.markdown("---")
     st.header("🔎 Réglages Visuels (Zoom)")
-    zoom_largeur = st.slider("Étirer le planning (Largeur)", 20, 80, 30)
+    zoom_largeur = st.slider("Étirer le planning (Largeur)", 20, 80, 35)
     taille_texte = st.slider("Taille du texte", 6, 16, 10)
 
 uploaded_file = st.file_uploader("📁 Glissez votre fichier Excel (.xlsx)", type=["xlsx"])
@@ -79,17 +79,14 @@ if uploaded_file:
                 active_cfcs = sorted(df_zoom[c_cfc].unique(), key=lambda x: str(x))
                 cfc_info = {}
                 
-                # --- NOUVELLE LOGIQUE D'EMPILEMENT (STACKING) ---
                 for cfc in active_cfcs:
                     tasks = df_zoom[df_zoom[c_cfc] == cfc].sort_values('Start_Dt')
                     placed, max_lvl = [], 0
                     for _, row in tasks.iterrows():
                         s = mdates.date2num(row['Start_Dt'])
-                        # On force une durée minimum de 1 jour pour que les tâches du même jour "collisionnent"
                         e = mdates.date2num(row['End_Dt']) + 1 
                         
                         lvl = 0
-                        # On ajoute une marge virtuelle de 0.8 jour pour laisser la place au texte !
                         marge_texte = 0.8 
                         while any(not (e + marge_texte <= ts or s >= te) and tl == lvl for ts, te, tl in placed): 
                             lvl += 1
@@ -98,7 +95,6 @@ if uploaded_file:
                         max_lvl = max(max_lvl, lvl)
                     cfc_info[cfc] = (max_lvl + 1, placed)
 
-                # Calcul dynamique de la hauteur globale du graphique en fonction du nombre de niveaux empilés
                 total_h = sum([max(2.8, h * 2.2) for h, _ in cfc_info.values()])
                 
                 fig = plt.figure(figsize=(zoom_largeur, total_h * 1.5 + 5), facecolor='white')
@@ -133,7 +129,6 @@ if uploaded_file:
                     for (_, row), (start_num, end_num, lvl) in zip(tasks.iterrows(), cfc_info[cfc][1]):
                         y_t = y_cursor + 1.2 + (lvl * 2.2)
                         
-                        # Délimitation stricte pour ne pas déborder hors du graphique
                         rect_s = max(start_num, mdates.date2num(p_start))
                         rect_e = min(end_num, mdates.date2num(p_end))
                         
@@ -141,22 +136,34 @@ if uploaded_file:
 
                         task_name = str(row[c_nom]) if c_nom and pd.notna(row[c_nom]) else "Tâche"
                         
-                        # Retour à la ligne ajusté
                         largeur_wrap = int(zoom_largeur / 1.5) 
                         txt_label = f"APP {row['Apt_Txt']}\n" + "\n".join(textwrap.wrap(task_name, width=largeur_wrap))
                         
                         ax.text(rect_s + (rect_e-rect_s)/2, y_t, txt_label, ha='center', va='center', fontsize=taille_texte, fontweight='bold', color='#1C2833', zorder=10)
                     y_cursor += h
 
+                # --- NOUVEAUX EN-TÊTES TEMPORELS ---
+                jours_fr = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM']
+                mois_fr = ['JANVIER', 'FÉVRIER', 'MARS', 'AVRIL', 'MAI', 'JUIN', 'JUILLET', 'AOÛT', 'SEPTEMBRE', 'OCTOBRE', 'NOVEMBRE', 'DÉCEMBRE']
+                
                 curr = p_start
                 while curr < p_end:
                     dn = mdates.date2num(curr)
+                    
+                    # 1. Le Mois (s'affiche au début et à chaque 1er du mois)
+                    if curr.day == 1 or curr == p_start:
+                        ax.text(dn, -3.2, f"{mois_fr[curr.month - 1]} {curr.year}", ha='left', fontsize=20, fontweight='bold', color='#2C3E50')
+                    
+                    # 2. La Semaine (le lundi)
                     if curr.weekday() == 0:
-                        ax.text(dn+3.5, -2, f"SEMAINE {curr.isocalendar()[1]}", ha='center', fontsize=18, fontweight='bold', color='white', bbox=dict(facecolor='#1C2833', edgecolor='none', pad=6, boxstyle='round,pad=0.3'))
+                        ax.text(dn+3.5, -1.8, f"SEM {curr.isocalendar()[1]}", ha='center', fontsize=16, fontweight='bold', color='white', bbox=dict(facecolor='#1C2833', edgecolor='none', pad=4, boxstyle='round,pad=0.3'))
                         ax.axvline(dn, color='#1C2833', linewidth=2, zorder=2)
                     
-                    color_jour = '#E74C3C' if curr.weekday() >= 5 else '#7F8C8D'
-                    ax.text(dn+0.5, -0.5, f"{curr.day}", ha='center', fontsize=12, fontweight='bold', color=color_jour)
+                    # 3. Le Jour de la semaine + Numéro
+                    color_jour = '#E74C3C' if curr.weekday() >= 5 else '#7F8C8D' # Weekends en rouge, semaine en gris
+                    jour_txt = f"{jours_fr[curr.weekday()]}\n{curr.day}"
+                    ax.text(dn+0.5, -0.6, jour_txt, ha='center', va='center', fontsize=11, fontweight='bold', color=color_jour)
+                    
                     curr += timedelta(days=1)
 
                 ax.set_yticks([]); ax.set_xticks([])
@@ -164,7 +171,7 @@ if uploaded_file:
 
                 buf = io.BytesIO()
                 plt.savefig(buf, format='pdf', bbox_inches='tight', facecolor=fig.get_facecolor(), edgecolor='none')
-                st.download_button("📥 Télécharger PDF", buf.getvalue(), f"Emploi_Du_Temps_{date_debut_ui}.pdf", "application/pdf")
+                st.download_button("📥 Télécharger PDF", buf.getvalue(), f"Planning_Lean_Athenee.pdf", "application/pdf")
 
     except Exception as e:
         st.error(f"💥 Erreur inattendue : {e}")
