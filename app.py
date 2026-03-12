@@ -22,7 +22,6 @@ with st.sidebar:
     st.markdown("---")
     st.header("🔎 Réglages Visuels (Zoom)")
     zoom_largeur = st.slider("Étirer le planning (Largeur)", 20, 80, 35)
-    # NOUVEAU REGLAGE POUR L'IMPRESSION A3
     zoom_hauteur = st.slider("Hauteur du planning (Compacter)", 0.5, 3.0, 1.5, step=0.1)
     taille_texte = st.slider("Taille du texte", 6, 16, 10)
 
@@ -36,14 +35,24 @@ if uploaded_file:
         cols_brutes = {str(c).lower().strip().replace(' ', '').replace('°', ''): c for c in df.columns}
 
         c_cfc = cols_brutes.get('cfc')
-        c_apt = cols_brutes.get('nappartement') or cols_brutes.get('appartement')
+        # DÉTECTION ÉLARGIE : Accepte les mots Zone, Secteur, etc.
+        c_apt = cols_brutes.get('nappartement') or cols_brutes.get('appartement') or cols_brutes.get('zone') or cols_brutes.get('secteur')
         c_debut = cols_brutes.get('début') or cols_brutes.get('debut')
         c_fin = cols_brutes.get('fin') or cols_brutes.get('end')
         c_nom = cols_brutes.get('nom') or cols_brutes.get('tâche')
 
         if not all([c_cfc, c_apt, c_debut, c_fin]):
-            st.error("❌ Colonnes introuvables. Vérifiez le fichier.")
+            st.error("❌ Colonnes introuvables. Vérifiez que votre fichier contient : CFC, Début, Fin, et Appartement/Zone.")
         else:
+            # Choix du préfixe pour l'affichage selon le nom de la colonne
+            nom_colonne = str(c_apt).lower()
+            if 'zone' in nom_colonne:
+                prefix = "ZONE"
+            elif 'secteur' in nom_colonne:
+                prefix = "SECTEUR"
+            else:
+                prefix = "APP"
+
             def parse_french_date(d):
                 if pd.isna(d): return pd.NaT
                 if isinstance(d, (datetime, pd.Timestamp, date)): return pd.to_datetime(d)
@@ -99,7 +108,6 @@ if uploaded_file:
 
                 total_h = sum([max(2.8, h * 2.2) for h, _ in cfc_info.values()])
                 
-                # INTEGRATION DU ZOOM HAUTEUR ICI
                 fig = plt.figure(figsize=(zoom_largeur, total_h * zoom_hauteur + 5), facecolor='white')
                 ax = fig.add_axes([0.15, 0.1, 0.82, 0.8], facecolor='white')
                 ax.set_xlim(mdates.date2num(p_start), mdates.date2num(p_end))
@@ -109,7 +117,13 @@ if uploaded_file:
                 for spine in ax.spines.values():
                     spine.set_visible(False)
 
-                chic_palette = ['#EAECEE', '#D6DBDF', '#D5C4A1', '#BCAAA4', '#B0BEC5', '#A9CCE3', '#A2D9CE', '#F9E79F', '#F5CBA7', '#E8DAEF']
+                # PALETTE AGRANDIE À 20 COULEURS CHICS
+                chic_palette = [
+                    '#EAECEE', '#D6DBDF', '#D5C4A1', '#BCAAA4', '#B0BEC5', 
+                    '#A9CCE3', '#A2D9CE', '#FAD7A1', '#F5CBA7', '#E8DAEF',
+                    '#C5E1A5', '#80CBC4', '#90CAF9', '#CE93D8', '#FFCC80',
+                    '#FFAB91', '#B3E5FC', '#E6EE9C', '#CFD8DC', '#F0F3F4'
+                ]
                 apt_list = sorted(df_clean['Apt_Txt'].unique())
                 apt_colors = {a: chic_palette[i % len(chic_palette)] for i, a in enumerate(apt_list)}
 
@@ -140,12 +154,13 @@ if uploaded_file:
                         task_name = str(row[c_nom]) if c_nom and pd.notna(row[c_nom]) else "Tâche"
                         
                         largeur_wrap = int(zoom_largeur / 1.5) 
-                        txt_label = f"APP {row['Apt_Txt']}\n" + "\n".join(textwrap.wrap(task_name, width=largeur_wrap))
+                        
+                        # UTILISATION DU PRÉFIXE DYNAMIQUE
+                        txt_label = f"{prefix} {row['Apt_Txt']}\n" + "\n".join(textwrap.wrap(task_name, width=largeur_wrap))
                         
                         ax.text(rect_s + (rect_e-rect_s)/2, y_t, txt_label, ha='center', va='center', fontsize=taille_texte, fontweight='bold', color='#1C2833', zorder=10)
                     y_cursor += h
 
-                # --- NOUVEAUX EN-TÊTES TEMPORELS ---
                 jours_fr = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM']
                 mois_fr = ['JANVIER', 'FÉVRIER', 'MARS', 'AVRIL', 'MAI', 'JUIN', 'JUILLET', 'AOÛT', 'SEPTEMBRE', 'OCTOBRE', 'NOVEMBRE', 'DÉCEMBRE']
                 
@@ -153,17 +168,14 @@ if uploaded_file:
                 while curr < p_end:
                     dn = mdates.date2num(curr)
                     
-                    # 1. Le Mois (s'affiche au début et à chaque 1er du mois)
                     if curr.day == 1 or curr == p_start:
                         ax.text(dn, -3.2, f"{mois_fr[curr.month - 1]} {curr.year}", ha='left', fontsize=20, fontweight='bold', color='#2C3E50')
                     
-                    # 2. La Semaine (le lundi)
                     if curr.weekday() == 0:
                         ax.text(dn+3.5, -1.8, f"SEM {curr.isocalendar()[1]}", ha='center', fontsize=16, fontweight='bold', color='white', bbox=dict(facecolor='#1C2833', edgecolor='none', pad=4, boxstyle='round,pad=0.3'))
                         ax.axvline(dn, color='#1C2833', linewidth=2, zorder=2)
                     
-                    # 3. Le Jour de la semaine + Numéro
-                    color_jour = '#E74C3C' if curr.weekday() >= 5 else '#7F8C8D' # Weekends en rouge, semaine en gris
+                    color_jour = '#E74C3C' if curr.weekday() >= 5 else '#7F8C8D'
                     jour_txt = f"{jours_fr[curr.weekday()]}\n{curr.day}"
                     ax.text(dn+0.5, -0.6, jour_txt, ha='center', va='center', fontsize=11, fontweight='bold', color=color_jour)
                     
@@ -174,7 +186,7 @@ if uploaded_file:
 
                 buf = io.BytesIO()
                 plt.savefig(buf, format='pdf', bbox_inches='tight', facecolor=fig.get_facecolor(), edgecolor='none')
-                st.download_button("📥 Télécharger PDF", buf.getvalue(), f"Planning_Lean_Athenee.pdf", "application/pdf")
+                st.download_button("📥 Télécharger PDF", buf.getvalue(), f"Planning_Lean.pdf", "application/pdf")
 
     except Exception as e:
         st.error(f"💥 Erreur inattendue : {e}")
