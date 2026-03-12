@@ -22,6 +22,8 @@ with st.sidebar:
     st.markdown("---")
     st.header("🔎 Réglages Visuels (Zoom)")
     zoom_largeur = st.slider("Étirer le planning (Largeur)", 20, 80, 35)
+    # NOUVEAU REGLAGE POUR L'IMPRESSION A3
+    zoom_hauteur = st.slider("Hauteur du planning (Compacter)", 0.5, 3.0, 1.5, step=0.1)
     taille_texte = st.slider("Taille du texte", 6, 16, 10)
 
 uploaded_file = st.file_uploader("📁 Glissez votre fichier Excel (.xlsx)", type=["xlsx"])
@@ -97,7 +99,8 @@ if uploaded_file:
 
                 total_h = sum([max(2.8, h * 2.2) for h, _ in cfc_info.values()])
                 
-                fig = plt.figure(figsize=(zoom_largeur, total_h * 1.5 + 5), facecolor='white')
+                # INTEGRATION DU ZOOM HAUTEUR ICI
+                fig = plt.figure(figsize=(zoom_largeur, total_h * zoom_hauteur + 5), facecolor='white')
                 ax = fig.add_axes([0.15, 0.1, 0.82, 0.8], facecolor='white')
                 ax.set_xlim(mdates.date2num(p_start), mdates.date2num(p_end))
                 ax.set_ylim(-4, total_h)
