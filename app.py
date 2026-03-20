@@ -21,9 +21,9 @@ with st.sidebar:
     
     st.markdown("---")
     st.header("🔎 Réglages Visuels (Zoom)")
-    zoom_largeur = st.slider("Étirer le planning (Largeur)", 20, 80, 35)
-    zoom_hauteur = st.slider("Hauteur du planning (Compacter)", 0.5, 3.0, 1.5, step=0.1)
-    taille_texte = st.slider("Taille du texte", 6, 16, 10)
+    zoom_largeur = st.slider("Étirer le planning (Largeur)", 20, 100, 35)
+    zoom_hauteur = st.slider("Hauteur des cases", 0.8, 3.0, 1.4, step=0.1)
+    taille_texte = st.slider("Taille du texte de base", 6, 24, 10)
 
 uploaded_file = st.file_uploader("📁 Glissez votre fichier Excel (.xlsx)", type=["xlsx"])
 
@@ -104,9 +104,10 @@ if uploaded_file:
                         max_lvl = max(max_lvl, lvl)
                     cfc_info[cfc] = (max_lvl + 1, placed)
 
-                total_h = sum([max(2.0, h * 1.4) for h, _ in cfc_info.values()])
+                # RECONNEXION DU CURSEUR HAUTEUR
+                total_h = sum([max(2.0, h * zoom_hauteur) for h, _ in cfc_info.values()])
                 
-                fig = plt.figure(figsize=(zoom_largeur, total_h * zoom_hauteur + 5), facecolor='white')
+                fig = plt.figure(figsize=(zoom_largeur, total_h + 5), facecolor='white')
                 ax = fig.add_axes([0.15, 0.1, 0.82, 0.8], facecolor='white')
                 ax.set_xlim(mdates.date2num(p_start), mdates.date2num(p_end))
                 ax.set_ylim(-4, total_h)
@@ -130,45 +131,57 @@ if uploaded_file:
                     curr_grid += timedelta(days=1)
 
                 y_cursor = 0
+                
+                # FACTEUR D'ÉCHELLE POUR LE TEXTE (Compense le dézoom du PDF)
+                facteur_echelle = zoom_largeur / 35.0
+                taille_reelle = taille_texte * facteur_echelle
+
                 for cfc in active_cfcs:
-                    h = max(2.0, cfc_info[cfc][0] * 1.4)
+                    h = max(2.0, cfc_info[cfc][0] * zoom_hauteur)
                     
                     if active_cfcs.index(cfc) % 2 == 0:
                         ax.add_patch(patches.Rectangle((mdates.date2num(p_start), y_cursor), nb_semaines*7, h, color='#F8F9FA', zorder=1))
                     
                     ax.axhline(y_cursor, color='#BDC3C7', linewidth=1)
-                    ax.text(mdates.date2num(p_start) - 0.2, y_cursor + h/2, f"CFC {cfc}", ha='right', va='center', fontweight='bold', fontsize=16, color='#2C3E50')
+                    
+                    # Titre des CFC mis à l'échelle
+                    ax.text(mdates.date2num(p_start) - 0.2, y_cursor + h/2, f"CFC {cfc}", ha='right', va='center', fontweight='bold', fontsize=taille_reelle + 2, color='#2C3E50')
 
                     tasks = df_zoom[df_zoom[c_cfc] == cfc].sort_values('Start_Dt')
                     for (_, row), (start_num, end_num, lvl) in zip(tasks.iterrows(), cfc_info[cfc][1]):
-                        y_t = y_cursor + 0.8 + (lvl * 1.4)
+                        
+                        # Espacement vertical connecté au curseur
+                        y_t = y_cursor + 0.8 + (lvl * zoom_hauteur)
                         
                         rect_s = max(start_num, mdates.date2num(p_start))
                         rect_e = min(end_num, mdates.date2num(p_end))
                         duree_jours = end_num - start_num
                         
-                        ax.add_patch(patches.Rectangle((start_num, y_t-0.6), duree_jours, 1.2, facecolor=apt_colors[row['Apt_Txt']], edgecolor='white', linewidth=2, zorder=5))
+                        # L'épaisseur de la case est connectée au curseur (85% de l'espace alloué)
+                        epaisseur_case = zoom_hauteur * 0.85
+                        ax.add_patch(patches.Rectangle((start_num, y_t - (epaisseur_case/2)), duree_jours, epaisseur_case, facecolor=apt_colors[row['Apt_Txt']], edgecolor='white', linewidth=2, zorder=5))
 
                         task_name = str(row[c_nom]) if c_nom and pd.notna(row[c_nom]) else "Tâche"
                         texte_complet = f"{prefix} {row['Apt_Txt']} : {task_name}"
                         
+                        # Calcul proportionnel pour les ciseaux de texte
                         axes_width_inches = zoom_largeur * 0.82
                         inch_per_day = axes_width_inches / (nb_semaines * 7)
                         jours_dispos = max(0.2, duree_jours - 0.2)
                         task_width_pts = jours_dispos * inch_per_day * 72
-                        largeur_lettre_pts = taille_texte * 0.55
+                        largeur_lettre_pts = taille_reelle * 0.55
                         
                         largeur_wrap = int(task_width_pts / largeur_lettre_pts)
                         largeur_wrap = max(5, largeur_wrap) 
                         
                         lignes = textwrap.wrap(texte_complet, width=largeur_wrap)
-                        
-                        # PLUS AUCUNE DÉCOUPE : On joint absolument toutes les lignes générées
                         txt_label = "\n".join(lignes)
                         
-                        taille_adaptee = taille_texte if duree_jours >= 2 else max(5, taille_texte - 1.5)
+                        # La taille du texte s'adapte à ta largeur totale
+                        taille_adaptee = taille_reelle if duree_jours >= 2 else max(5, taille_reelle - (2 * facteur_echelle))
                         
-                        ax.text(rect_s + 0.1, y_t - 0.45, txt_label, ha='left', va='top', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
+                        # Alignement parfait dans le coin haut gauche de la case générée
+                        ax.text(rect_s + 0.1, y_t - (epaisseur_case/2) + 0.15, txt_label, ha='left', va='top', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
                         
                     y_cursor += h
 
@@ -180,15 +193,15 @@ if uploaded_file:
                     dn = mdates.date2num(curr)
                     
                     if curr.day == 1 or curr == p_start:
-                        ax.text(dn, -3.2, f"{mois_fr[curr.month - 1]} {curr.year}", ha='left', fontsize=20, fontweight='bold', color='#2C3E50')
+                        ax.text(dn, -3.2, f"{mois_fr[curr.month - 1]} {curr.year}", ha='left', fontsize=taille_reelle + 4, fontweight='bold', color='#2C3E50')
                     
                     if curr.weekday() == 0:
-                        ax.text(dn+3.5, -1.8, f"SEM {curr.isocalendar()[1]}", ha='center', fontsize=16, fontweight='bold', color='white', bbox=dict(facecolor='#1C2833', edgecolor='none', pad=4, boxstyle='round,pad=0.3'))
+                        ax.text(dn+3.5, -1.8, f"SEM {curr.isocalendar()[1]}", ha='center', fontsize=taille_reelle, fontweight='bold', color='white', bbox=dict(facecolor='#1C2833', edgecolor='none', pad=4, boxstyle='round,pad=0.3'))
                         ax.axvline(dn, color='#1C2833', linewidth=2, zorder=2)
                     
                     color_jour = '#E74C3C' if curr.weekday() >= 5 else '#7F8C8D'
                     jour_txt = f"{jours_fr[curr.weekday()]}\n{curr.day}"
-                    ax.text(dn+0.5, -0.6, jour_txt, ha='center', va='center', fontsize=11, fontweight='bold', color=color_jour)
+                    ax.text(dn+0.5, -0.6, jour_txt, ha='center', va='center', fontsize=taille_reelle - 2, fontweight='bold', color=color_jour)
                     
                     curr += timedelta(days=1)
 
