@@ -108,7 +108,6 @@ if uploaded_file:
 
                 total_h = sum([max(2.0, h * zoom_hauteur) for h, _ in cfc_info.values()])
                 
-                # J'ai ajouté un peu d'espace (+8) pour que le titre et le logo respirent
                 fig = plt.figure(figsize=(zoom_largeur, total_h + 8), facecolor='white')
                 ax = fig.add_axes([0.15, 0.12, 0.82, 0.74], facecolor='white')
                 ax.set_xlim(mdates.date2num(p_start), mdates.date2num(p_end))
@@ -137,7 +136,7 @@ if uploaded_file:
                 facteur_echelle = zoom_largeur / 35.0
                 taille_reelle = taille_texte * facteur_echelle
 
-                # --- TITRE INTELLIGENT ---
+                # --- TITRE INTELLIGENT ET MAJUSCULES ---
                 semaine_debut = p_start.isocalendar()[1]
                 semaine_fin = (p_end - timedelta(days=1)).isocalendar()[1]
                 
@@ -146,18 +145,18 @@ if uploaded_file:
                 else:
                     titre_complet = f"{titre_planning} (S{semaine_debut} à S{semaine_fin})"
 
-                fig.text(0.5, 0.96, titre_complet, ha='center', va='center', fontsize=taille_reelle + 8, fontweight='bold', color='#1A365D')
+                # Le .upper() force les majuscules, et j'ai gonflé la taille (+14)
+                fig.text(0.5, 0.96, titre_complet.upper(), ha='center', va='center', fontsize=taille_reelle + 14, fontweight='bold', color='#1A365D')
                 
-                # La date de création
                 date_edition = datetime.now().strftime("%d/%m/%Y")
                 fig.text(0.97, 0.04, f"Fait le : {date_edition}", ha='right', va='center', fontsize=max(8, taille_reelle - 4), fontstyle='italic', color='#7F8C8D')
                 
-                # --- AJOUT DU LOGO MAULINI ---
+                # --- LOGO MAULINI À GAUCHE ---
                 path_logo = "logo_maulini.png"
                 if os.path.exists(path_logo):
                     logo = Image.open(path_logo)
-                    # On place le logo en haut à droite. Les coordonnées (0.85, 0.92) sont à ajuster selon la taille de ton logo
-                    fig.figimage(logo, xo=fig.bbox.xmax * 0.85, yo=fig.bbox.ymax * 0.92, origin='upper', zorder=10)
+                    # xo=fig.bbox.xmax * 0.05 place le logo à gauche (à 5% du bord)
+                    fig.figimage(logo, xo=fig.bbox.xmax * 0.05, yo=fig.bbox.ymax * 0.92, origin='upper', zorder=10)
                 # -----------------------------
 
                 for cfc in active_cfcs:
