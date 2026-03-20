@@ -104,7 +104,6 @@ if uploaded_file:
                         max_lvl = max(max_lvl, lvl)
                     cfc_info[cfc] = (max_lvl + 1, placed)
 
-                # Hauteur totale compactée
                 total_h = sum([max(2.0, h * 1.4) for h, _ in cfc_info.values()])
                 
                 fig = plt.figure(figsize=(zoom_largeur, total_h * zoom_hauteur + 5), facecolor='white')
@@ -132,7 +131,6 @@ if uploaded_file:
 
                 y_cursor = 0
                 for cfc in active_cfcs:
-                    # Hauteur de la ligne CFC compactée
                     h = max(2.0, cfc_info[cfc][0] * 1.4)
                     
                     if active_cfcs.index(cfc) % 2 == 0:
@@ -143,30 +141,25 @@ if uploaded_file:
 
                     tasks = df_zoom[df_zoom[c_cfc] == cfc].sort_values('Start_Dt')
                     for (_, row), (start_num, end_num, lvl) in zip(tasks.iterrows(), cfc_info[cfc][1]):
-                        # Position Y compactée
                         y_t = y_cursor + 0.8 + (lvl * 1.4)
                         
                         rect_s = max(start_num, mdates.date2num(p_start))
                         rect_e = min(end_num, mdates.date2num(p_end))
                         duree_jours = end_num - start_num
                         
-                        # Cases plus fines (hauteur 1.2)
                         ax.add_patch(patches.Rectangle((start_num, y_t-0.6), duree_jours, 1.2, facecolor=apt_colors[row['Apt_Txt']], edgecolor='white', linewidth=2, zorder=5))
 
                         task_name = str(row[c_nom]) if c_nom and pd.notna(row[c_nom]) else "Tâche"
-                        
-                        # TEXTE INTÉGRAL AVEC SAUTS DE LIGNE INTELLIGENTS
                         texte_complet = f"{prefix} {row['Apt_Txt']} : {task_name}"
                         
-                        # On force le passage à la ligne selon la largeur de la case
-                        largeur_wrap = max(10, int(duree_jours * 6)) 
+                        # MODIFICATION ICI : On permet au texte d'être beaucoup plus long sur une seule ligne
+                        largeur_wrap = max(15, int(duree_jours * 8)) 
                         txt_label = "\n".join(textwrap.wrap(texte_complet, width=largeur_wrap))
                         
-                        # Légère réduction de police si la tâche dure moins de 2 jours pour que ça tienne dans la petite case
                         taille_adaptee = taille_texte if duree_jours >= 2 else max(5, taille_texte - 2.5)
                         
-                        centre_x = rect_s + (rect_e - rect_s) / 2
-                        ax.text(centre_x, y_t, txt_label, ha='center', va='center', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
+                        # MODIFICATION ICI : Alignement à GAUCHE (ha='left') et position de départ au bord gauche de la case (+0.15 pour ne pas coller au trait)
+                        ax.text(rect_s + 0.15, y_t, txt_label, ha='left', va='center', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
                         
                     y_cursor += h
 
