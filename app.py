@@ -147,30 +147,33 @@ if uploaded_file:
                         rect_e = min(end_num, mdates.date2num(p_end))
                         duree_jours = end_num - start_num
                         
+                        # Dessin de la case : la hauteur fait 1.2. Le haut est à y_t - 0.6, le bas à y_t + 0.6 (axe inversé)
                         ax.add_patch(patches.Rectangle((start_num, y_t-0.6), duree_jours, 1.2, facecolor=apt_colors[row['Apt_Txt']], edgecolor='white', linewidth=2, zorder=5))
 
                         task_name = str(row[c_nom]) if c_nom and pd.notna(row[c_nom]) else "Tâche"
                         texte_complet = f"{prefix} {row['Apt_Txt']} : {task_name}"
                         
-                        # --- LE CORRECTIF MATHÉMATIQUE EST ICI ---
-                        # On calcule la vraie largeur d'un jour sur le PDF
-                        largeur_jour_visuelle = zoom_largeur / (nb_semaines * 7)
+                        # -- LE VRAI BLOC DE SÉCURITÉ TEXTE --
+                        # On calcule le nombre de lettres selon la durée de la tâche
+                        chars_par_jour = max(6, int(100 / taille_texte))
+                        largeur_wrap = max(8, int(duree_jours * chars_par_jour)) 
                         
-                        # Plus la police est petite, plus on rentre de lettres par pouce
-                        lettres_par_jour = largeur_jour_visuelle * (180 / taille_texte)
+                        # On découpe le texte
+                        lignes = textwrap.wrap(texte_complet, width=largeur_wrap)
                         
-                        # La largeur de coupe dépend exactement de la durée de la tâche
-                        largeur_wrap = max(12, int(duree_jours * lettres_par_jour)) 
+                        # SÉCURITÉ 1 : On coupe les lignes en trop si ça déborde vers le bas !
+                        max_lignes = 3 if taille_texte >= 9 else 4
+                        if len(lignes) > max_lignes:
+                            lignes = lignes[:max_lignes]
+                            lignes[-1] = lignes[-1][:largeur_wrap-3] + "..." # Ajout des 3 petits points
+                            
+                        txt_label = "\n".join(lignes)
                         
-                        txt_label = "\n".join(textwrap.wrap(texte_complet, width=largeur_wrap))
-                        
-                        # Police légèrement réduite pour les toutes petites tâches d'un jour
                         taille_adaptee = taille_texte if duree_jours >= 2 else max(5, taille_texte - 1.5)
                         
-                        # --- LE CORRECTIF D'ALIGNEMENT EST ICI ---
-                        # va='top' (vertical alignment) force le texte à s'accrocher au plafond de la case.
-                        # y_t - 0.5 permet de placer le point de départ en haut à gauche de la case colorée.
-                        ax.text(rect_s + 0.1, y_t - 0.5, txt_label, ha='left', va='top', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
+                        # SÉCURITÉ 2 : Le bon point d'ancrage ! 
+                        # y_t - 0.4 positionne le texte pile en haut à l'intérieur de la case.
+                        ax.text(rect_s + 0.1, y_t - 0.4, txt_label, ha='left', va='top', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
                         
                     y_cursor += h
 
