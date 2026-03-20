@@ -152,14 +152,18 @@ if uploaded_file:
                         task_name = str(row[c_nom]) if c_nom and pd.notna(row[c_nom]) else "Tâche"
                         texte_complet = f"{prefix} {row['Apt_Txt']} : {task_name}"
                         
-                        # MODIFICATION ICI : On permet au texte d'être beaucoup plus long sur une seule ligne
-                        largeur_wrap = max(15, int(duree_jours * 8)) 
+                        # --- LE CORRECTIF EST ICI ---
+                        # Python calcule le nombre de lettres maximum par ligne selon TA taille de texte
+                        # (Plus le texte est petit, plus il laisse la ligne s'allonger)
+                        chars_par_jour = max(15, int(280 / taille_texte)) 
+                        largeur_wrap = max(20, int(duree_jours * chars_par_jour)) 
+                        
                         txt_label = "\n".join(textwrap.wrap(texte_complet, width=largeur_wrap))
                         
                         taille_adaptee = taille_texte if duree_jours >= 2 else max(5, taille_texte - 2.5)
                         
-                        # MODIFICATION ICI : Alignement à GAUCHE (ha='left') et position de départ au bord gauche de la case (+0.15 pour ne pas coller au trait)
-                        ax.text(rect_s + 0.15, y_t, txt_label, ha='left', va='center', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
+                        # On décale très légèrement le texte (+0.1) pour qu'il ne touche pas le trait gauche de la case
+                        ax.text(rect_s + 0.1, y_t, txt_label, ha='left', va='center', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
                         
                     y_cursor += h
 
