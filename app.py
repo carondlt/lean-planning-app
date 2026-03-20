@@ -147,33 +147,28 @@ if uploaded_file:
                         rect_e = min(end_num, mdates.date2num(p_end))
                         duree_jours = end_num - start_num
                         
-                        # Dessin de la case : la hauteur fait 1.2. Le haut est à y_t - 0.6, le bas à y_t + 0.6 (axe inversé)
                         ax.add_patch(patches.Rectangle((start_num, y_t-0.6), duree_jours, 1.2, facecolor=apt_colors[row['Apt_Txt']], edgecolor='white', linewidth=2, zorder=5))
 
                         task_name = str(row[c_nom]) if c_nom and pd.notna(row[c_nom]) else "Tâche"
                         texte_complet = f"{prefix} {row['Apt_Txt']} : {task_name}"
                         
-                        # -- LE VRAI BLOC DE SÉCURITÉ TEXTE --
-                        # On calcule le nombre de lettres selon la durée de la tâche
-                        chars_par_jour = max(6, int(100 / taille_texte))
-                        largeur_wrap = max(8, int(duree_jours * chars_par_jour)) 
+                        axes_width_inches = zoom_largeur * 0.82
+                        inch_per_day = axes_width_inches / (nb_semaines * 7)
+                        jours_dispos = max(0.2, duree_jours - 0.2)
+                        task_width_pts = jours_dispos * inch_per_day * 72
+                        largeur_lettre_pts = taille_texte * 0.55
                         
-                        # On découpe le texte
+                        largeur_wrap = int(task_width_pts / largeur_lettre_pts)
+                        largeur_wrap = max(5, largeur_wrap) 
+                        
                         lignes = textwrap.wrap(texte_complet, width=largeur_wrap)
                         
-                        # SÉCURITÉ 1 : On coupe les lignes en trop si ça déborde vers le bas !
-                        max_lignes = 3 if taille_texte >= 9 else 4
-                        if len(lignes) > max_lignes:
-                            lignes = lignes[:max_lignes]
-                            lignes[-1] = lignes[-1][:largeur_wrap-3] + "..." # Ajout des 3 petits points
-                            
+                        # PLUS AUCUNE DÉCOUPE : On joint absolument toutes les lignes générées
                         txt_label = "\n".join(lignes)
                         
                         taille_adaptee = taille_texte if duree_jours >= 2 else max(5, taille_texte - 1.5)
                         
-                        # SÉCURITÉ 2 : Le bon point d'ancrage ! 
-                        # y_t - 0.4 positionne le texte pile en haut à l'intérieur de la case.
-                        ax.text(rect_s + 0.1, y_t - 0.4, txt_label, ha='left', va='top', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
+                        ax.text(rect_s + 0.1, y_t - 0.45, txt_label, ha='left', va='top', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
                         
                     y_cursor += h
 
