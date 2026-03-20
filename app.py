@@ -7,6 +7,7 @@ from datetime import timedelta, datetime, date
 import textwrap
 import io
 import re
+import os
 from PIL import Image
 
 Image.MAX_IMAGE_PIXELS = None
@@ -16,6 +17,7 @@ st.title("🗓️ Planning Lean - Vue Emploi du Temps")
 
 with st.sidebar:
     st.header("⚙️ Configuration")
+    titre_planning = st.text_input("Titre du PDF", "Planning d'exécution")
     nb_semaines = st.slider("Nombre de semaines", 1, 6, 2)
     date_debut_ui = st.date_input("Date de début", date(2026, 6, 1))
     
@@ -104,11 +106,11 @@ if uploaded_file:
                         max_lvl = max(max_lvl, lvl)
                     cfc_info[cfc] = (max_lvl + 1, placed)
 
-                # RECONNEXION DU CURSEUR HAUTEUR
                 total_h = sum([max(2.0, h * zoom_hauteur) for h, _ in cfc_info.values()])
                 
-                fig = plt.figure(figsize=(zoom_largeur, total_h + 5), facecolor='white')
-                ax = fig.add_axes([0.15, 0.1, 0.82, 0.8], facecolor='white')
+                # J'ai ajouté un peu d'espace (+8) pour que le titre et le logo respirent
+                fig = plt.figure(figsize=(zoom_largeur, total_h + 8), facecolor='white')
+                ax = fig.add_axes([0.15, 0.12, 0.82, 0.74], facecolor='white')
                 ax.set_xlim(mdates.date2num(p_start), mdates.date2num(p_end))
                 ax.set_ylim(-4, total_h)
                 ax.invert_yaxis()
@@ -132,9 +134,31 @@ if uploaded_file:
 
                 y_cursor = 0
                 
-                # FACTEUR D'ÉCHELLE POUR LE TEXTE (Compense le dézoom du PDF)
                 facteur_echelle = zoom_largeur / 35.0
                 taille_reelle = taille_texte * facteur_echelle
+
+                # --- TITRE INTELLIGENT ---
+                semaine_debut = p_start.isocalendar()[1]
+                semaine_fin = (p_end - timedelta(days=1)).isocalendar()[1]
+                
+                if semaine_debut == semaine_fin:
+                    titre_complet = f"{titre_planning} (S{semaine_debut})"
+                else:
+                    titre_complet = f"{titre_planning} (S{semaine_debut} à S{semaine_fin})"
+
+                fig.text(0.5, 0.96, titre_complet, ha='center', va='center', fontsize=taille_reelle + 8, fontweight='bold', color='#1A365D')
+                
+                # La date de création
+                date_edition = datetime.now().strftime("%d/%m/%Y")
+                fig.text(0.97, 0.04, f"Fait le : {date_edition}", ha='right', va='center', fontsize=max(8, taille_reelle - 4), fontstyle='italic', color='#7F8C8D')
+                
+                # --- AJOUT DU LOGO MAULINI ---
+                path_logo = "logo_maulini.png"
+                if os.path.exists(path_logo):
+                    logo = Image.open(path_logo)
+                    # On place le logo en haut à droite. Les coordonnées (0.85, 0.92) sont à ajuster selon la taille de ton logo
+                    fig.figimage(logo, xo=fig.bbox.xmax * 0.85, yo=fig.bbox.ymax * 0.92, origin='upper', zorder=10)
+                # -----------------------------
 
                 for cfc in active_cfcs:
                     h = max(2.0, cfc_info[cfc][0] * zoom_hauteur)
@@ -144,27 +168,23 @@ if uploaded_file:
                     
                     ax.axhline(y_cursor, color='#BDC3C7', linewidth=1)
                     
-                    # Titre des CFC mis à l'échelle
                     ax.text(mdates.date2num(p_start) - 0.2, y_cursor + h/2, f"CFC {cfc}", ha='right', va='center', fontweight='bold', fontsize=taille_reelle + 2, color='#2C3E50')
 
                     tasks = df_zoom[df_zoom[c_cfc] == cfc].sort_values('Start_Dt')
                     for (_, row), (start_num, end_num, lvl) in zip(tasks.iterrows(), cfc_info[cfc][1]):
                         
-                        # Espacement vertical connecté au curseur
                         y_t = y_cursor + 0.8 + (lvl * zoom_hauteur)
                         
                         rect_s = max(start_num, mdates.date2num(p_start))
                         rect_e = min(end_num, mdates.date2num(p_end))
                         duree_jours = end_num - start_num
                         
-                        # L'épaisseur de la case est connectée au curseur (85% de l'espace alloué)
                         epaisseur_case = zoom_hauteur * 0.85
                         ax.add_patch(patches.Rectangle((start_num, y_t - (epaisseur_case/2)), duree_jours, epaisseur_case, facecolor=apt_colors[row['Apt_Txt']], edgecolor='white', linewidth=2, zorder=5))
 
                         task_name = str(row[c_nom]) if c_nom and pd.notna(row[c_nom]) else "Tâche"
                         texte_complet = f"{prefix} {row['Apt_Txt']} : {task_name}"
                         
-                        # Calcul proportionnel pour les ciseaux de texte
                         axes_width_inches = zoom_largeur * 0.82
                         inch_per_day = axes_width_inches / (nb_semaines * 7)
                         jours_dispos = max(0.2, duree_jours - 0.2)
@@ -175,12 +195,11 @@ if uploaded_file:
                         largeur_wrap = max(5, largeur_wrap) 
                         
                         lignes = textwrap.wrap(texte_complet, width=largeur_wrap)
+                        
                         txt_label = "\n".join(lignes)
                         
-                        # La taille du texte s'adapte à ta largeur totale
                         taille_adaptee = taille_reelle if duree_jours >= 2 else max(5, taille_reelle - (2 * facteur_echelle))
                         
-                        # Alignement parfait dans le coin haut gauche de la case générée
                         ax.text(rect_s + 0.1, y_t - (epaisseur_case/2) + 0.15, txt_label, ha='left', va='top', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
                         
                     y_cursor += h
