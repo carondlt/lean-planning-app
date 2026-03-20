@@ -152,18 +152,25 @@ if uploaded_file:
                         task_name = str(row[c_nom]) if c_nom and pd.notna(row[c_nom]) else "Tâche"
                         texte_complet = f"{prefix} {row['Apt_Txt']} : {task_name}"
                         
-                        # --- LE CORRECTIF EST ICI ---
-                        # Python calcule le nombre de lettres maximum par ligne selon TA taille de texte
-                        # (Plus le texte est petit, plus il laisse la ligne s'allonger)
-                        chars_par_jour = max(15, int(280 / taille_texte)) 
-                        largeur_wrap = max(20, int(duree_jours * chars_par_jour)) 
+                        # --- LE CORRECTIF MATHÉMATIQUE EST ICI ---
+                        # On calcule la vraie largeur d'un jour sur le PDF
+                        largeur_jour_visuelle = zoom_largeur / (nb_semaines * 7)
+                        
+                        # Plus la police est petite, plus on rentre de lettres par pouce
+                        lettres_par_jour = largeur_jour_visuelle * (180 / taille_texte)
+                        
+                        # La largeur de coupe dépend exactement de la durée de la tâche
+                        largeur_wrap = max(12, int(duree_jours * lettres_par_jour)) 
                         
                         txt_label = "\n".join(textwrap.wrap(texte_complet, width=largeur_wrap))
                         
-                        taille_adaptee = taille_texte if duree_jours >= 2 else max(5, taille_texte - 2.5)
+                        # Police légèrement réduite pour les toutes petites tâches d'un jour
+                        taille_adaptee = taille_texte if duree_jours >= 2 else max(5, taille_texte - 1.5)
                         
-                        # On décale très légèrement le texte (+0.1) pour qu'il ne touche pas le trait gauche de la case
-                        ax.text(rect_s + 0.1, y_t, txt_label, ha='left', va='center', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
+                        # --- LE CORRECTIF D'ALIGNEMENT EST ICI ---
+                        # va='top' (vertical alignment) force le texte à s'accrocher au plafond de la case.
+                        # y_t - 0.5 permet de placer le point de départ en haut à gauche de la case colorée.
+                        ax.text(rect_s + 0.1, y_t - 0.5, txt_label, ha='left', va='top', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
                         
                     y_cursor += h
 
