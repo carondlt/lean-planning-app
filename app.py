@@ -35,7 +35,6 @@ if uploaded_file:
         cols_brutes = {str(c).lower().strip().replace(' ', '').replace('°', ''): c for c in df.columns}
 
         c_cfc = cols_brutes.get('cfc')
-        # DÉTECTION ÉLARGIE : Accepte les mots Zone, Secteur, etc.
         c_apt = cols_brutes.get('nappartement') or cols_brutes.get('appartement') or cols_brutes.get('zone') or cols_brutes.get('secteur')
         c_debut = cols_brutes.get('début') or cols_brutes.get('debut')
         c_fin = cols_brutes.get('fin') or cols_brutes.get('end')
@@ -44,7 +43,6 @@ if uploaded_file:
         if not all([c_cfc, c_apt, c_debut, c_fin]):
             st.error("❌ Colonnes introuvables. Vérifiez que votre fichier contient : CFC, Début, Fin, et Appartement/Zone.")
         else:
-            # Choix du préfixe pour l'affichage selon le nom de la colonne
             nom_colonne = str(c_apt).lower()
             if 'zone' in nom_colonne:
                 prefix = "ZONE"
@@ -106,7 +104,8 @@ if uploaded_file:
                         max_lvl = max(max_lvl, lvl)
                     cfc_info[cfc] = (max_lvl + 1, placed)
 
-                total_h = sum([max(2.8, h * 2.2) for h, _ in cfc_info.values()])
+                # NOUVEAU CALCUL DE HAUTEUR COMPACTÉE
+                total_h = sum([max(2.0, h * 1.4) for h, _ in cfc_info.values()])
                 
                 fig = plt.figure(figsize=(zoom_largeur, total_h * zoom_hauteur + 5), facecolor='white')
                 ax = fig.add_axes([0.15, 0.1, 0.82, 0.8], facecolor='white')
@@ -117,7 +116,6 @@ if uploaded_file:
                 for spine in ax.spines.values():
                     spine.set_visible(False)
 
-                # PALETTE AGRANDIE À 20 COULEURS CHICS
                 chic_palette = [
                     '#EAECEE', '#D6DBDF', '#D5C4A1', '#BCAAA4', '#B0BEC5', 
                     '#A9CCE3', '#A2D9CE', '#FAD7A1', '#F5CBA7', '#E8DAEF',
@@ -132,9 +130,10 @@ if uploaded_file:
                     ax.axvline(mdates.date2num(curr_grid), color='#EEEEEE', linewidth=1.5, zorder=0)
                     curr_grid += timedelta(days=1)
 
+                # NOUVELLE BOUCLE D'AFFICHAGE (Lignes tassées et texte intelligent)
                 y_cursor = 0
                 for cfc in active_cfcs:
-                    h = max(2.8, cfc_info[cfc][0] * 2.2)
+                    h = max(2.0, cfc_info[cfc][0] * 1.4)
                     
                     if active_cfcs.index(cfc) % 2 == 0:
                         ax.add_patch(patches.Rectangle((mdates.date2num(p_start), y_cursor), nb_semaines*7, h, color='#F8F9FA', zorder=1))
@@ -144,21 +143,32 @@ if uploaded_file:
 
                     tasks = df_zoom[df_zoom[c_cfc] == cfc].sort_values('Start_Dt')
                     for (_, row), (start_num, end_num, lvl) in zip(tasks.iterrows(), cfc_info[cfc][1]):
-                        y_t = y_cursor + 1.2 + (lvl * 2.2)
+                        y_t = y_cursor + 0.8 + (lvl * 1.4)
                         
                         rect_s = max(start_num, mdates.date2num(p_start))
                         rect_e = min(end_num, mdates.date2num(p_end))
+                        duree_jours = end_num - start_num
                         
-                        ax.add_patch(patches.Rectangle((start_num, y_t-1.0), end_num-start_num, 2.0, facecolor=apt_colors[row['Apt_Txt']], edgecolor='white', linewidth=2, zorder=5))
+                        # Cases plus fines (1.2 de hauteur)
+                        ax.add_patch(patches.Rectangle((start_num, y_t-0.6), duree_jours, 1.2, facecolor=apt_colors[row['Apt_Txt']], edgecolor='white', linewidth=2, zorder=5))
 
                         task_name = str(row[c_nom]) if c_nom and pd.notna(row[c_nom]) else "Tâche"
                         
-                        largeur_wrap = int(zoom_largeur / 1.5) 
+                        # LOGIQUE DE TEXTE ADAPTATIF
+                        if duree_jours <= 1.5:
+                            # Tâche trop courte : on n'affiche que le N° de l'appartement
+                            txt_label = f"{row['Apt_Txt']}"
+                            taille_adaptee = max(5, taille_texte - 2)
+                        else:
+                            # Tâche longue : on calcule le wrap intelligemment selon la durée
+                            largeur_wrap = max(5, int(duree_jours * 4)) 
+                            txt_label = f"{prefix} {row['Apt_Txt']}\n" + "\n".join(textwrap.wrap(task_name, width=largeur_wrap))
+                            taille_adaptee = taille_texte
                         
-                        # UTILISATION DU PRÉFIXE DYNAMIQUE
-                        txt_label = f"{prefix} {row['Apt_Txt']}\n" + "\n".join(textwrap.wrap(task_name, width=largeur_wrap))
+                        # Centrage parfait
+                        centre_x = rect_s + (rect_e - rect_s) / 2
+                        ax.text(centre_x, y_t, txt_label, ha='center', va='center', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
                         
-                        ax.text(rect_s + (rect_e-rect_s)/2, y_t, txt_label, ha='center', va='center', fontsize=taille_texte, fontweight='bold', color='#1C2833', zorder=10)
                     y_cursor += h
 
                 jours_fr = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM']
