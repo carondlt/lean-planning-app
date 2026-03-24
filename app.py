@@ -108,7 +108,6 @@ if uploaded_file:
 
                 total_h = sum([max(2.0, h * zoom_hauteur) for h, _ in cfc_info.values()])
                 
-                # J'ai ajouté encore un peu plus de marge (+9) pour le gros logo
                 fig = plt.figure(figsize=(zoom_largeur, total_h + 9), facecolor='white')
                 ax = fig.add_axes([0.15, 0.12, 0.82, 0.72], facecolor='white')
                 ax.set_xlim(mdates.date2num(p_start), mdates.date2num(p_end))
@@ -137,7 +136,6 @@ if uploaded_file:
                 facteur_echelle = zoom_largeur / 35.0
                 taille_reelle = taille_texte * facteur_echelle
 
-                # --- TITRE PARFAITEMENT CENTRÉ ---
                 semaine_debut = p_start.isocalendar()[1]
                 semaine_fin = (p_end - timedelta(days=1)).isocalendar()[1]
                 
@@ -146,20 +144,18 @@ if uploaded_file:
                 else:
                     titre_complet = f"{titre_planning} (S{semaine_debut} à S{semaine_fin})"
 
-                # CORRECTION : Le 0.56 centre le titre au-dessus du tableau de bordure à bordure
                 fig.text(0.56, 0.94, titre_complet.upper(), ha='center', va='center', fontsize=taille_reelle + 14, fontweight='bold', color='#1A365D')
                 
                 date_edition = datetime.now().strftime("%d/%m/%Y")
                 fig.text(0.97, 0.04, f"Fait le : {date_edition}", ha='right', va='center', fontsize=max(8, taille_reelle - 4), fontstyle='italic', color='#7F8C8D')
                 
-                # --- LOGO MAULINI MAXI FORMAT ---
+                # --- LOGO MAULINI ALIGNÉ (x=0.15) ---
                 path_logo = "logo_maulini.png"
                 if os.path.exists(path_logo):
                     logo = Image.open(path_logo)
-                    # On crée un gros bloc réservé au logo en haut à gauche (largeur 15%, hauteur 12%)
-                    ax_logo = fig.add_axes([0.02, 0.86, 0.15, 0.12], anchor='NW', zorder=10)
+                    ax_logo = fig.add_axes([0.15, 0.88, 0.15, 0.12], anchor='NW', zorder=10)
                     ax_logo.imshow(logo)
-                    ax_logo.axis('off') # Cache les traits de construction
+                    ax_logo.axis('off') 
                 # -----------------------------
 
                 for cfc in active_cfcs:
