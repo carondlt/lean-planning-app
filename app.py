@@ -111,7 +111,9 @@ if uploaded_file:
                 fig = plt.figure(figsize=(zoom_largeur, total_h + 9), facecolor='white')
                 ax = fig.add_axes([0.15, 0.12, 0.82, 0.72], facecolor='white')
                 ax.set_xlim(mdates.date2num(p_start), mdates.date2num(p_end))
-                ax.set_ylim(-4, total_h)
+                
+                # CORRECTION 1 : On augmente la marge du haut à -5 pour protéger les dates
+                ax.set_ylim(-5, total_h)
                 ax.invert_yaxis()
                 
                 for spine in ax.spines.values():
@@ -149,14 +151,12 @@ if uploaded_file:
                 date_edition = datetime.now().strftime("%d/%m/%Y")
                 fig.text(0.97, 0.04, f"Fait le : {date_edition}", ha='right', va='center', fontsize=max(8, taille_reelle - 4), fontstyle='italic', color='#7F8C8D')
                 
-                # --- LOGO MAULINI ALIGNÉ (x=0.15) ---
                 path_logo = "logo_maulini.png"
                 if os.path.exists(path_logo):
                     logo = Image.open(path_logo)
                     ax_logo = fig.add_axes([0.15, 0.88, 0.15, 0.12], anchor='NW', zorder=10)
                     ax_logo.imshow(logo)
                     ax_logo.axis('off') 
-                # -----------------------------
 
                 for cfc in active_cfcs:
                     h = max(2.0, cfc_info[cfc][0] * zoom_hauteur)
@@ -171,7 +171,8 @@ if uploaded_file:
                     tasks = df_zoom[df_zoom[c_cfc] == cfc].sort_values('Start_Dt')
                     for (_, row), (start_num, end_num, lvl) in zip(tasks.iterrows(), cfc_info[cfc][1]):
                         
-                        y_t = y_cursor + 0.8 + (lvl * zoom_hauteur)
+                        # CORRECTION 2 : Le calcul du centre de la tâche pousse maintenant vers le BAS
+                        y_t = y_cursor + (zoom_hauteur / 2.0) + (lvl * zoom_hauteur)
                         
                         rect_s = max(start_num, mdates.date2num(p_start))
                         rect_e = min(end_num, mdates.date2num(p_end))
@@ -198,7 +199,8 @@ if uploaded_file:
                         
                         taille_adaptee = taille_reelle if duree_jours >= 2 else max(5, taille_reelle - (2 * facteur_echelle))
                         
-                        ax.text(rect_s + 0.1, y_t - (epaisseur_case/2) + 0.15, txt_label, ha='left', va='top', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
+                        # CORRECTION 3 : Le texte s'aligne dynamiquement avec la nouvelle case
+                        ax.text(rect_s + 0.1, y_t - (epaisseur_case/2) + (zoom_hauteur * 0.1), txt_label, ha='left', va='top', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
                         
                     y_cursor += h
 
@@ -209,16 +211,17 @@ if uploaded_file:
                 while curr < p_end:
                     dn = mdates.date2num(curr)
                     
+                    # CORRECTION 4 : On remonte les textes de l'en-tête pour utiliser le nouvel espace libre
                     if curr.day == 1 or curr == p_start:
-                        ax.text(dn, -3.2, f"{mois_fr[curr.month - 1]} {curr.year}", ha='left', fontsize=taille_reelle + 4, fontweight='bold', color='#2C3E50')
+                        ax.text(dn, -3.8, f"{mois_fr[curr.month - 1]} {curr.year}", ha='left', fontsize=taille_reelle + 4, fontweight='bold', color='#2C3E50')
                     
                     if curr.weekday() == 0:
-                        ax.text(dn+3.5, -1.8, f"SEM {curr.isocalendar()[1]}", ha='center', fontsize=taille_reelle, fontweight='bold', color='white', bbox=dict(facecolor='#1C2833', edgecolor='none', pad=4, boxstyle='round,pad=0.3'))
+                        ax.text(dn+3.5, -2.2, f"SEM {curr.isocalendar()[1]}", ha='center', fontsize=taille_reelle, fontweight='bold', color='white', bbox=dict(facecolor='#1C2833', edgecolor='none', pad=4, boxstyle='round,pad=0.3'))
                         ax.axvline(dn, color='#1C2833', linewidth=2, zorder=2)
                     
                     color_jour = '#E74C3C' if curr.weekday() >= 5 else '#7F8C8D'
                     jour_txt = f"{jours_fr[curr.weekday()]}\n{curr.day}"
-                    ax.text(dn+0.5, -0.6, jour_txt, ha='center', va='center', fontsize=taille_reelle - 2, fontweight='bold', color=color_jour)
+                    ax.text(dn+0.5, -0.8, jour_txt, ha='center', va='center', fontsize=taille_reelle - 2, fontweight='bold', color=color_jour)
                     
                     curr += timedelta(days=1)
 
