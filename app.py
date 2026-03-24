@@ -108,12 +108,14 @@ if uploaded_file:
 
                 total_h = sum([max(2.0, h * zoom_hauteur) for h, _ in cfc_info.values()])
                 
-                fig = plt.figure(figsize=(zoom_largeur, total_h + 9), facecolor='white')
-                ax = fig.add_axes([0.15, 0.12, 0.82, 0.72], facecolor='white')
-                ax.set_xlim(mdates.date2num(p_start), mdates.date2num(p_end))
+                # CORRECTION 1 : On réduit l'espace artificiel ajouté (+5 au lieu de +9)
+                fig = plt.figure(figsize=(zoom_largeur, total_h + 5), facecolor='white')
                 
-                # CORRECTION 1 : On augmente la marge du haut à -5 pour protéger les dates
-                ax.set_ylim(-5, total_h)
+                # CORRECTION 2 : On étire le tableau au maximum. 
+                # Départ à 8% du bord gauche, 5% du bas. Largeur de 90%, hauteur de 82%.
+                ax = fig.add_axes([0.08, 0.05, 0.90, 0.82], facecolor='white')
+                ax.set_xlim(mdates.date2num(p_start), mdates.date2num(p_end))
+                ax.set_ylim(-4.5, total_h)
                 ax.invert_yaxis()
                 
                 for spine in ax.spines.values():
@@ -146,17 +148,20 @@ if uploaded_file:
                 else:
                     titre_complet = f"{titre_planning} (S{semaine_debut} à S{semaine_fin})"
 
-                fig.text(0.56, 0.94, titre_complet.upper(), ha='center', va='center', fontsize=taille_reelle + 14, fontweight='bold', color='#1A365D')
+                # CORRECTION 3 : Le titre est centré sur la nouvelle largeur (0.53) et remonte un peu (0.95)
+                fig.text(0.53, 0.95, titre_complet.upper(), ha='center', va='center', fontsize=taille_reelle + 14, fontweight='bold', color='#1A365D')
                 
                 date_edition = datetime.now().strftime("%d/%m/%Y")
-                fig.text(0.97, 0.04, f"Fait le : {date_edition}", ha='right', va='center', fontsize=max(8, taille_reelle - 4), fontstyle='italic', color='#7F8C8D')
+                fig.text(0.97, 0.02, f"Fait le : {date_edition}", ha='right', va='center', fontsize=max(8, taille_reelle - 4), fontstyle='italic', color='#7F8C8D')
                 
+                # --- LOGO MAULINI ALIGNÉ SUR LE NOUVEAU BORD (x=0.08) ---
                 path_logo = "logo_maulini.png"
                 if os.path.exists(path_logo):
                     logo = Image.open(path_logo)
-                    ax_logo = fig.add_axes([0.15, 0.88, 0.15, 0.12], anchor='NW', zorder=10)
+                    ax_logo = fig.add_axes([0.08, 0.88, 0.15, 0.10], anchor='NW', zorder=10)
                     ax_logo.imshow(logo)
                     ax_logo.axis('off') 
+                # -----------------------------
 
                 for cfc in active_cfcs:
                     h = max(2.0, cfc_info[cfc][0] * zoom_hauteur)
@@ -166,12 +171,12 @@ if uploaded_file:
                     
                     ax.axhline(y_cursor, color='#BDC3C7', linewidth=1)
                     
-                    ax.text(mdates.date2num(p_start) - 0.2, y_cursor + h/2, f"CFC {cfc}", ha='right', va='center', fontweight='bold', fontsize=taille_reelle + 2, color='#2C3E50')
+                    # CORRECTION 4 : On rapproche les labels CFC pour ne pas qu'ils sortent de la page (-0.1 au lieu de -0.2)
+                    ax.text(mdates.date2num(p_start) - 0.1, y_cursor + h/2, f"CFC {cfc}", ha='right', va='center', fontweight='bold', fontsize=taille_reelle + 2, color='#2C3E50')
 
                     tasks = df_zoom[df_zoom[c_cfc] == cfc].sort_values('Start_Dt')
                     for (_, row), (start_num, end_num, lvl) in zip(tasks.iterrows(), cfc_info[cfc][1]):
                         
-                        # CORRECTION 2 : Le calcul du centre de la tâche pousse maintenant vers le BAS
                         y_t = y_cursor + (zoom_hauteur / 2.0) + (lvl * zoom_hauteur)
                         
                         rect_s = max(start_num, mdates.date2num(p_start))
@@ -184,7 +189,7 @@ if uploaded_file:
                         task_name = str(row[c_nom]) if c_nom and pd.notna(row[c_nom]) else "Tâche"
                         texte_complet = f"{prefix} {row['Apt_Txt']} : {task_name}"
                         
-                        axes_width_inches = zoom_largeur * 0.82
+                        axes_width_inches = zoom_largeur * 0.90
                         inch_per_day = axes_width_inches / (nb_semaines * 7)
                         jours_dispos = max(0.2, duree_jours - 0.2)
                         task_width_pts = jours_dispos * inch_per_day * 72
@@ -199,7 +204,6 @@ if uploaded_file:
                         
                         taille_adaptee = taille_reelle if duree_jours >= 2 else max(5, taille_reelle - (2 * facteur_echelle))
                         
-                        # CORRECTION 3 : Le texte s'aligne dynamiquement avec la nouvelle case
                         ax.text(rect_s + 0.1, y_t - (epaisseur_case/2) + (zoom_hauteur * 0.1), txt_label, ha='left', va='top', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
                         
                     y_cursor += h
@@ -211,17 +215,16 @@ if uploaded_file:
                 while curr < p_end:
                     dn = mdates.date2num(curr)
                     
-                    # CORRECTION 4 : On remonte les textes de l'en-tête pour utiliser le nouvel espace libre
                     if curr.day == 1 or curr == p_start:
-                        ax.text(dn, -3.8, f"{mois_fr[curr.month - 1]} {curr.year}", ha='left', fontsize=taille_reelle + 4, fontweight='bold', color='#2C3E50')
+                        ax.text(dn, -3.5, f"{mois_fr[curr.month - 1]} {curr.year}", ha='left', fontsize=taille_reelle + 4, fontweight='bold', color='#2C3E50')
                     
                     if curr.weekday() == 0:
-                        ax.text(dn+3.5, -2.2, f"SEM {curr.isocalendar()[1]}", ha='center', fontsize=taille_reelle, fontweight='bold', color='white', bbox=dict(facecolor='#1C2833', edgecolor='none', pad=4, boxstyle='round,pad=0.3'))
+                        ax.text(dn+3.5, -2.0, f"SEM {curr.isocalendar()[1]}", ha='center', fontsize=taille_reelle, fontweight='bold', color='white', bbox=dict(facecolor='#1C2833', edgecolor='none', pad=4, boxstyle='round,pad=0.3'))
                         ax.axvline(dn, color='#1C2833', linewidth=2, zorder=2)
                     
                     color_jour = '#E74C3C' if curr.weekday() >= 5 else '#7F8C8D'
                     jour_txt = f"{jours_fr[curr.weekday()]}\n{curr.day}"
-                    ax.text(dn+0.5, -0.8, jour_txt, ha='center', va='center', fontsize=taille_reelle - 2, fontweight='bold', color=color_jour)
+                    ax.text(dn+0.5, -0.6, jour_txt, ha='center', va='center', fontsize=taille_reelle - 2, fontweight='bold', color=color_jour)
                     
                     curr += timedelta(days=1)
 
