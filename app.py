@@ -134,6 +134,7 @@ if uploaded_file:
 
                     fig = plt.figure(figsize=(fig_width, fig_height), facecolor='white')
                     
+                    # Le graphique commence à 0.12
                     ax = fig.add_axes([0.12, 0.05, 0.85, 0.82], facecolor='white')
                     ax.set_xlim(mdates.date2num(p_start), mdates.date2num(p_end))
                     
@@ -223,10 +224,17 @@ if uploaded_file:
                             lignes = textwrap.wrap(texte_complet, width=largeur_wrap)
                             txt_label = "\n".join(lignes)
                             
-                            taille_adaptee = taille_reelle if duree_jours >= 2 else max(5, taille_reelle - (2 * facteur_echelle))
+                            # --- NOUVELLES MATHÉMATIQUES DU REMPLISSAGE DE TEXTE ---
+                            nb_lignes = max(1, len(lignes))
                             
-                            y_texte = y_t - (epaisseur_case/2) + (zoom_hauteur * 0.05)
-                            ax.text(rect_s + 0.1, y_texte, txt_label, ha='left', va='top', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
+                            centre_x = start_num + (duree_jours / 2.0)
+                            centre_y = y_t - (epaisseur_case / 2.0)
+                            
+                            taille_max_calculee = (taille_reelle * (zoom_hauteur / 1.4)) / (nb_lignes * 0.85)
+                            taille_adaptee = taille_max_calculee if duree_jours >= 2 else max(4, taille_max_calculee * 0.6)
+                            
+                            ax.text(centre_x, centre_y, txt_label, ha='center', va='center', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
+                            # -------------------------------------------------------
                             
                         y_cursor += h
 
