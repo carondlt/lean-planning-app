@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-import matplotlib.dates as mdates
 from datetime import timedelta, datetime, date
 import textwrap
 import io
@@ -82,6 +81,31 @@ if uploaded_file:
 
             p_start = pd.to_datetime(date_debut_ui)
             p_end = p_start + timedelta(days=nb_semaines * 7)
+            
+            # --- LE MOTEUR DE JOURS OUVRÉS ---
+            def get_x(dt, is_end=False):
+                if pd.isna(dt): return 0
+                d1 = p_start.date()
+                d2 = dt.date()
+                sign = 1 if d2 >= d1 else -1
+                start, end = (d1, d2) if d2 >= d1 else (d2, d1)
+                
+                days = 0
+                curr = start
+                while curr < end:
+                    if curr.weekday() < 5:  # Si ce n'est ni samedi (5) ni dimanche (6)
+                        days += 1
+                    curr += timedelta(days=1)
+                
+                if is_end:
+                    if sign == 1:
+                        return days + 1 if dt.weekday() < 5 else days
+                    else:
+                        return -days + 1 if dt.weekday() < 5 else -days
+                else:
+                    return days * sign
+            # ---------------------------------
+
             df_zoom = df_clean[(df_clean['Start_Dt'] < p_end) & (df_clean['End_Dt'] >= p_start)].copy()
 
             if df_zoom.empty:
@@ -107,8 +131,10 @@ if uploaded_file:
                         tasks = df_zoom[df_zoom[c_cfc] == cfc].sort_values('Start_Dt')
                         placed, max_lvl = [], 0
                         for _, row in tasks.iterrows():
-                            s = mdates.date2num(row['Start_Dt'])
-                            e = mdates.date2num(row['End_Dt']) + 1 
+                            s = get_x(row['Start_Dt'])
+                            e = get_x(row['End_Dt'], is_end=True)
+                            
+                            if e <= s: e = s + 0.2
                             
                             lvl = 0
                             marge_texte = 0.8 
@@ -121,26 +147,18 @@ if uploaded_file:
 
                     total_h = sum([max(2.0, h * zoom_hauteur) for h, _ in cfc_info.values()])
                     
-                    # --- MARGE RÉDUITE ICI ---
-                    hauteur_requise = total_h + 4.5 
-                    ratio_a4 = 1.4142 
-                    largeur_requise = hauteur_requise * ratio_a4
-                    
-                    if zoom_largeur >= largeur_requise:
-                        fig_width = zoom_largeur
-                        fig_height = fig_width / ratio_a4
-                    else:
-                        fig_height = hauteur_requise
-                        fig_width = fig_height * ratio_a4
+                    fig_width = zoom_largeur
+                    fig_height = max(5.0, total_h + 4.0)
 
                     fig = plt.figure(figsize=(fig_width, fig_height), facecolor='white')
                     
-                    # --- EXTENSION DE LA ZONE DE DESSIN ---
-                    # Le graphique descend maintenant à 0.02 (2%) et prend 88% de la hauteur
-                    ax = fig.add_axes([0.12, 0.02, 0.85, 0.88], facecolor='white')
-                    ax.set_xlim(mdates.date2num(p_start), mdates.date2num(p_end))
+                    ax = fig.add_axes([0.12, 0.05, 0.85, 0.88], facecolor='white')
                     
-                    ax.set_ylim(-4.5, fig_height - 4.5)
+                    # La largeur du graphique correspond au nombre de semaines * 5 jours ouvrés
+                    x_end = nb_semaines * 5
+                    ax.set_xlim(0, x_end)
+                    
+                    ax.set_ylim(-4.5, total_h + 0.8)
                     ax.invert_yaxis()
                     
                     for spine in ax.spines.values():
@@ -154,11 +172,6 @@ if uploaded_file:
                     ]
                     apt_list = sorted(df_clean['Apt_Txt'].unique())
                     apt_colors = {a: chic_palette[i % len(chic_palette)] for i, a in enumerate(apt_list)}
-
-                    curr_grid = p_start
-                    while curr_grid <= p_end:
-                        ax.axvline(mdates.date2num(curr_grid), color='#EEEEEE', linewidth=1.5, zorder=0)
-                        curr_grid += timedelta(days=1)
 
                     y_cursor = 0
                     
@@ -179,14 +192,12 @@ if uploaded_file:
                     fig.text(0.54, 0.95, titre_complet.upper(), ha='center', va='center', fontsize=taille_reelle + 14, fontweight='bold', color='#1A365D')
                     
                     date_edition = datetime.now().strftime("%d/%m/%Y")
-                    # --- DATE ÉCRASÉE TOUT EN BAS ---
-                    fig.text(0.97, 0.01, f"Fait le : {date_edition}", ha='right', va='center', fontsize=max(8, taille_reelle - 4), fontstyle='italic', color='#7F8C8D')
+                    ax.text(x_end, total_h + 0.4, f"Fait le : {date_edition}", ha='right', va='top', fontsize=max(8, taille_reelle - 4), fontstyle='italic', color='#7F8C8D')
                     
                     path_logo = "logo_maulini.png"
                     if os.path.exists(path_logo):
                         logo = Image.open(path_logo)
-                        # Le logo est ajusté pour rester bien calé au-dessus du tableau
-                        ax_logo = fig.add_axes([0.12, 0.90, 0.15, 0.08], anchor='NW', zorder=10)
+                        ax_logo = fig.add_axes([0.12, 0.88, 0.15, 0.09], anchor='NW', zorder=10)
                         ax_logo.imshow(logo)
                         ax_logo.axis('off') 
 
@@ -194,20 +205,22 @@ if uploaded_file:
                         h = max(2.0, cfc_info[cfc][0] * zoom_hauteur)
                         
                         if active_cfcs.index(cfc) % 2 == 0:
-                            ax.add_patch(patches.Rectangle((mdates.date2num(p_start), y_cursor), nb_semaines*7, h, color='#F8F9FA', zorder=1))
+                            ax.add_patch(patches.Rectangle((0, y_cursor), x_end, h, color='#F8F9FA', zorder=1))
                         
                         ax.axhline(y_cursor, color='#BDC3C7', linewidth=1)
                         
-                        ax.text(mdates.date2num(p_start) - 0.2, y_cursor + h/2, f"CFC {cfc}", ha='right', va='center', fontweight='bold', fontsize=taille_reelle + 2, color='#2C3E50')
+                        ax.text(-0.2, y_cursor + h/2, f"CFC {cfc}", ha='right', va='center', fontweight='bold', fontsize=taille_reelle + 2, color='#2C3E50')
 
                         tasks = df_zoom[df_zoom[c_cfc] == cfc].sort_values('Start_Dt')
                         for (_, row), (start_num, end_num, lvl) in zip(tasks.iterrows(), cfc_info[cfc][1]):
                             
                             y_t = y_cursor + (zoom_hauteur / 2.0) + (lvl * zoom_hauteur)
                             
-                            rect_s = max(start_num, mdates.date2num(p_start))
-                            rect_e = min(end_num, mdates.date2num(p_end))
+                            rect_s = max(start_num, 0)
+                            rect_e = min(end_num, x_end)
                             duree_jours = end_num - start_num
+                            
+                            if duree_jours <= 0: duree_jours = 0.2
                             
                             epaisseur_case = zoom_hauteur * 0.85
                             ax.add_patch(patches.Rectangle((start_num, y_t - (epaisseur_case/2)), duree_jours, epaisseur_case, facecolor=apt_colors[row['Apt_Txt']], edgecolor='white', linewidth=2, zorder=5))
@@ -216,7 +229,7 @@ if uploaded_file:
                             texte_complet = f"{prefix} {row['Apt_Txt']} : {task_name}"
                             
                             axes_width_inches = fig_width * 0.85
-                            inch_per_day = axes_width_inches / (nb_semaines * 7)
+                            inch_per_day = axes_width_inches / (nb_semaines * 5)
                             jours_dispos = max(0.2, duree_jours - 0.2)
                             task_width_pts = jours_dispos * inch_per_day * 72
                             
@@ -235,31 +248,34 @@ if uploaded_file:
                             
                         y_cursor += h
 
-                    jours_fr = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM']
+                    jours_fr = ['LUN', 'MAR', 'MER', 'JEU', 'VEN']
                     mois_fr = ['JANVIER', 'FÉVRIER', 'MARS', 'AVRIL', 'MAI', 'JUIN', 'JUILLET', 'AOÛT', 'SEPTEMBRE', 'OCTOBRE', 'NOVEMBRE', 'DÉCEMBRE']
                     
                     curr = p_start
+                    x_curr = 0
                     while curr < p_end:
-                        dn = mdates.date2num(curr)
-                        
-                        if curr.day == 1 or curr == p_start:
-                            ax.text(dn, -3.5, f"{mois_fr[curr.month - 1]} {curr.year}", ha='left', fontsize=taille_reelle + 4, fontweight='bold', color='#2C3E50')
-                        
-                        if curr.weekday() == 0:
-                            ax.text(dn+3.5, -2.0, f"SEM {curr.isocalendar()[1]}", ha='center', fontsize=taille_reelle, fontweight='bold', color='white', bbox=dict(facecolor='#1C2833', edgecolor='none', pad=4, boxstyle='round,pad=0.3'))
-                            ax.axvline(dn, color='#1C2833', linewidth=2, zorder=2)
-                        
-                        color_jour = '#E74C3C' if curr.weekday() >= 5 else '#7F8C8D'
-                        jour_txt = f"{jours_fr[curr.weekday()]}\n{curr.day}"
-                        ax.text(dn+0.5, -0.6, jour_txt, ha='center', va='center', fontsize=taille_reelle - 2, fontweight='bold', color=color_jour)
-                        
+                        if curr.weekday() < 5:
+                            ax.axvline(x_curr, color='#EEEEEE', linewidth=1.5, zorder=0)
+                            
+                            if curr.day == 1 or curr == p_start:
+                                ax.text(x_curr, -3.5, f"{mois_fr[curr.month - 1]} {curr.year}", ha='left', fontsize=taille_reelle + 4, fontweight='bold', color='#2C3E50')
+                            
+                            if curr.weekday() == 0:
+                                ax.text(x_curr + 2.5, -2.0, f"SEM {curr.isocalendar()[1]}", ha='center', fontsize=taille_reelle, fontweight='bold', color='white', bbox=dict(facecolor='#1C2833', edgecolor='none', pad=4, boxstyle='round,pad=0.3'))
+                                ax.axvline(x_curr, color='#1C2833', linewidth=2, zorder=2)
+                            
+                            jour_txt = f"{jours_fr[curr.weekday()]}\n{curr.day}"
+                            ax.text(x_curr + 0.5, -0.6, jour_txt, ha='center', va='center', fontsize=taille_reelle - 2, fontweight='bold', color='#7F8C8D')
+                            
+                            x_curr += 1
+                            
                         curr += timedelta(days=1)
 
                     ax.set_yticks([]); ax.set_xticks([])
                     st.pyplot(fig)
 
                     buf = io.BytesIO()
-                    plt.savefig(buf, format='pdf', facecolor=fig.get_facecolor(), edgecolor='none', dpi=150)
+                    plt.savefig(buf, format='pdf', facecolor=fig.get_facecolor(), edgecolor='none', dpi=150, bbox_inches='tight')
                     st.download_button("📥 Télécharger PDF", buf.getvalue(), f"Planning_Lean.pdf", "application/pdf")
                     plt.close(fig)
 
