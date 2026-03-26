@@ -121,7 +121,8 @@ if uploaded_file:
 
                     total_h = sum([max(2.0, h * zoom_hauteur) for h, _ in cfc_info.values()])
                     
-                    hauteur_requise = total_h + 6 
+                    # --- MARGE RÉDUITE ICI ---
+                    hauteur_requise = total_h + 4.5 
                     ratio_a4 = 1.4142 
                     largeur_requise = hauteur_requise * ratio_a4
                     
@@ -134,7 +135,9 @@ if uploaded_file:
 
                     fig = plt.figure(figsize=(fig_width, fig_height), facecolor='white')
                     
-                    ax = fig.add_axes([0.12, 0.05, 0.85, 0.82], facecolor='white')
+                    # --- EXTENSION DE LA ZONE DE DESSIN ---
+                    # Le graphique descend maintenant à 0.02 (2%) et prend 88% de la hauteur
+                    ax = fig.add_axes([0.12, 0.02, 0.85, 0.88], facecolor='white')
                     ax.set_xlim(mdates.date2num(p_start), mdates.date2num(p_end))
                     
                     ax.set_ylim(-4.5, fig_height - 4.5)
@@ -176,12 +179,14 @@ if uploaded_file:
                     fig.text(0.54, 0.95, titre_complet.upper(), ha='center', va='center', fontsize=taille_reelle + 14, fontweight='bold', color='#1A365D')
                     
                     date_edition = datetime.now().strftime("%d/%m/%Y")
-                    fig.text(0.97, 0.02, f"Fait le : {date_edition}", ha='right', va='center', fontsize=max(8, taille_reelle - 4), fontstyle='italic', color='#7F8C8D')
+                    # --- DATE ÉCRASÉE TOUT EN BAS ---
+                    fig.text(0.97, 0.01, f"Fait le : {date_edition}", ha='right', va='center', fontsize=max(8, taille_reelle - 4), fontstyle='italic', color='#7F8C8D')
                     
                     path_logo = "logo_maulini.png"
                     if os.path.exists(path_logo):
                         logo = Image.open(path_logo)
-                        ax_logo = fig.add_axes([0.12, 0.88, 0.15, 0.09], anchor='NW', zorder=10)
+                        # Le logo est ajusté pour rester bien calé au-dessus du tableau
+                        ax_logo = fig.add_axes([0.12, 0.90, 0.15, 0.08], anchor='NW', zorder=10)
                         ax_logo.imshow(logo)
                         ax_logo.axis('off') 
 
