@@ -88,18 +88,14 @@ if uploaded_file:
                 st.warning(f"📅 Rien de prévu entre le {p_start.date()} et le {p_end.date()}.")
             else:
                 
-                # --- NOUVEAU MENU : FILTRE PAR CFC ---
                 st.sidebar.markdown("---")
                 st.sidebar.header("🎯 Filtre de coordination")
                 
-                # On récupère tous les CFC uniques pour créer les options du menu
                 liste_cfc = ["Tous"] + sorted([str(x) for x in df_zoom[c_cfc].unique()])
                 cfc_selectionne = st.sidebar.selectbox("Filtrer par CFC :", liste_cfc)
                 
-                # Si l'utilisateur choisit un CFC spécifique, on coupe tout le reste
                 if cfc_selectionne != "Tous":
                     df_zoom = df_zoom[df_zoom[c_cfc].astype(str) == cfc_selectionne]
-                # -------------------------------------
 
                 if df_zoom.empty:
                     st.info("💡 Aucune tâche à afficher avec ce filtre.")
@@ -125,7 +121,6 @@ if uploaded_file:
 
                     total_h = sum([max(2.0, h * zoom_hauteur) for h, _ in cfc_info.values()])
                     
-                    # --- FORMAT A4 PAYSAGE STRICT ---
                     hauteur_requise = total_h + 6 
                     ratio_a4 = 1.4142 
                     largeur_requise = hauteur_requise * ratio_a4
@@ -139,6 +134,7 @@ if uploaded_file:
 
                     fig = plt.figure(figsize=(fig_width, fig_height), facecolor='white')
                     
+                    # Le graphique commence à 0.12
                     ax = fig.add_axes([0.12, 0.05, 0.85, 0.82], facecolor='white')
                     ax.set_xlim(mdates.date2num(p_start), mdates.date2num(p_end))
                     
@@ -175,7 +171,6 @@ if uploaded_file:
                     else:
                         titre_complet = f"{titre_planning} (S{semaine_debut} à S{semaine_fin})"
 
-                    # Si on est sur un seul CFC, on l'affiche dans le titre pour que ce soit clair sur le papier
                     if cfc_selectionne != "Tous":
                         titre_complet += f" - CFC {cfc_selectionne}"
 
@@ -184,12 +179,15 @@ if uploaded_file:
                     date_edition = datetime.now().strftime("%d/%m/%Y")
                     fig.text(0.97, 0.02, f"Fait le : {date_edition}", ha='right', va='center', fontsize=max(8, taille_reelle - 4), fontstyle='italic', color='#7F8C8D')
                     
+                    # --- LA CORRECTION EST ICI ---
+                    # Le logo démarre exactement à 0.12 (le même alignement que le graphique)
                     path_logo = "logo_maulini.png"
                     if os.path.exists(path_logo):
                         logo = Image.open(path_logo)
-                        ax_logo = fig.add_axes([0.05, 0.88, 0.15, 0.09], anchor='NW', zorder=10)
+                        ax_logo = fig.add_axes([0.12, 0.88, 0.15, 0.09], anchor='NW', zorder=10)
                         ax_logo.imshow(logo)
                         ax_logo.axis('off') 
+                    # -----------------------------
 
                     for cfc in active_cfcs:
                         h = max(2.0, cfc_info[cfc][0] * zoom_hauteur)
@@ -220,18 +218,19 @@ if uploaded_file:
                             inch_per_day = axes_width_inches / (nb_semaines * 7)
                             jours_dispos = max(0.2, duree_jours - 0.2)
                             task_width_pts = jours_dispos * inch_per_day * 72
-                            largeur_lettre_pts = taille_reelle * 0.55
                             
-                            largeur_wrap = int(task_width_pts / largeur_lettre_pts)
-                            largeur_wrap = max(5, largeur_wrap) 
+                            largeur_lettre_pts = taille_reelle * 0.60
+                            largeur_wrap_calculee = int(task_width_pts / largeur_lettre_pts)
+                            
+                            largeur_wrap = max(8, min(35, largeur_wrap_calculee)) 
                             
                             lignes = textwrap.wrap(texte_complet, width=largeur_wrap)
-                            
                             txt_label = "\n".join(lignes)
                             
                             taille_adaptee = taille_reelle if duree_jours >= 2 else max(5, taille_reelle - (2 * facteur_echelle))
                             
-                            ax.text(rect_s + 0.1, y_t - (epaisseur_case/2) + (zoom_hauteur * 0.1), txt_label, ha='left', va='top', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
+                            y_texte = y_t - (epaisseur_case/2) + (zoom_hauteur * 0.05)
+                            ax.text(rect_s + 0.1, y_texte, txt_label, ha='left', va='top', fontsize=taille_adaptee, fontweight='bold', color='#1C2833', zorder=10)
                             
                         y_cursor += h
 
