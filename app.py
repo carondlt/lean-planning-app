@@ -134,7 +134,6 @@ if uploaded_file:
 
                     fig = plt.figure(figsize=(fig_width, fig_height), facecolor='white')
                     
-                    # Le graphique commence à 0.12
                     ax = fig.add_axes([0.12, 0.05, 0.85, 0.82], facecolor='white')
                     ax.set_xlim(mdates.date2num(p_start), mdates.date2num(p_end))
                     
@@ -179,15 +178,12 @@ if uploaded_file:
                     date_edition = datetime.now().strftime("%d/%m/%Y")
                     fig.text(0.97, 0.02, f"Fait le : {date_edition}", ha='right', va='center', fontsize=max(8, taille_reelle - 4), fontstyle='italic', color='#7F8C8D')
                     
-                    # --- LA CORRECTION EST ICI ---
-                    # Le logo démarre exactement à 0.12 (le même alignement que le graphique)
                     path_logo = "logo_maulini.png"
                     if os.path.exists(path_logo):
                         logo = Image.open(path_logo)
                         ax_logo = fig.add_axes([0.12, 0.88, 0.15, 0.09], anchor='NW', zorder=10)
                         ax_logo.imshow(logo)
                         ax_logo.axis('off') 
-                    # -----------------------------
 
                     for cfc in active_cfcs:
                         h = max(2.0, cfc_info[cfc][0] * zoom_hauteur)
@@ -258,8 +254,12 @@ if uploaded_file:
                     st.pyplot(fig)
 
                     buf = io.BytesIO()
-                    plt.savefig(buf, format='pdf', facecolor=fig.get_facecolor(), edgecolor='none')
+                    # Optimisation de la RAM : on bride la résolution à 150 dpi
+                    plt.savefig(buf, format='pdf', facecolor=fig.get_facecolor(), edgecolor='none', dpi=150)
                     st.download_button("📥 Télécharger PDF", buf.getvalue(), f"Planning_Lean.pdf", "application/pdf")
+                    
+                    # Nettoyage obligatoire de la mémoire vive après la génération
+                    plt.close(fig)
 
     except Exception as e:
         st.error(f"💥 Erreur inattendue : {e}")
